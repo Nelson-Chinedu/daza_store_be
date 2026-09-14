@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../build/daza_store_be.props" />
-</Project>
