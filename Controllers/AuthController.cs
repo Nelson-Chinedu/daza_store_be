@@ -1,6 +1,7 @@
 using daza_store_be.Dtos.Request;
 using daza_store_be.Dtos.Response;
 using daza_store_be.Entities;
+using daza_store_be.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,10 +12,13 @@ namespace daza_store_be.Controllers
     public class AuthController: ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager;
+
+        private readonly ITokenService _tokenService;
         private readonly ILogger<AuthController> _logger;
-        public AuthController(UserManager<ApplicationUser> userManager, ILogger<AuthController> logger)
+        public AuthController(UserManager<ApplicationUser> userManager, ITokenService tokenService, ILogger<AuthController> logger)
         {
             _userManager = userManager;
+            _tokenService = tokenService;
             _logger = logger;
         }
 
@@ -73,5 +77,42 @@ namespace daza_store_be.Controllers
 
             return StatusCode(StatusCodes.Status201Created, responseDto);
         }
+
+        [HttpPost("login")]
+        [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto loginRequestDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var existingUser = await _userManager.FindByEmailAsync(loginRequestDto.Email);
+
+            if(existingUser == null)
+            {
+                return StatusCode(StatusCodes.Status401Unauthorized, new { message = "Invalid email address or password"});
+            }
+
+            var result = await _userManager.CheckPasswordAsync(existingUser, loginRequestDto.Password);
+
+            if(!result)
+            {
+                return StatusCode(StatusCodes.Status401Unauthorized, new { message = "Invalid email address or password"});
+            }
+
+            var token = _tokenService.CreateToken(existingUser);
+
+            var responseDto = new LoginResponseDto
+            {
+                Message = "Login successfully",
+                Token = token
+            };
+
+            return StatusCode(StatusCodes.Status200OK, responseDto);
+
+        }
+    
     }
 }
